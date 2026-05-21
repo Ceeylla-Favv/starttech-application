@@ -24,7 +24,6 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: go test ./... -v
-        continue-on-error: true
 
       - name: Go vet
         working-directory: backend
@@ -79,7 +78,7 @@ jobs:
             --output text)
 
           if [ -z "$INSTANCE_IDS" ]; then
-            echo "No running instances found — skipping deploy"
+            echo "No running instances found yet — skipping deploy"
             exit 0
           fi
 
@@ -88,20 +87,19 @@ jobs:
             aws ssm send-command \
               --instance-ids "$ID" \
               --document-name "AWS-RunShellScript" \
-              --parameters "{\"commands\":[
-                \"aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY\",
-                \"docker pull $REGISTRY/starttech-backend:$IMAGE_TAG\",
-                \"docker stop backend || true\",
-                \"docker rm backend || true\",
-                \"docker run -d --name backend --restart always -p 8080:8080 -v /root/.env:/root/.env $REGISTRY/starttech-backend:$IMAGE_TAG\"
-              ]}"
-            echo "Deployed to $ID"
+              --parameters commands="[
+                'aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $REGISTRY',
+                'docker pull $REGISTRY/starttech-backend:$IMAGE_TAG',
+                'docker stop backend || true',
+                'docker rm backend || true',
+                'docker run -d --name backend --restart always -p 8080:8080 -e MONGO_URI=${{ secrets.MONGO_URI }} -e REDIS_HOST=${{ secrets.REDIS_HOST }} -e APP_ENV=production $REGISTRY/starttech-backend:$IMAGE_TAG'
+              ]"
             sleep 30
           done
 
       - name: Health check
         run: |
-          echo "Checking backend health..."
+          echo "Waiting for backend to be healthy..."
           for i in {1..10}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
               http://${{ secrets.ALB_DNS_NAME }}/health || echo "000")
