@@ -258,7 +258,7 @@ curl http://starttech-alb-1944874729.eu-west-1.elb.amazonaws.com/health
 
 ```json
 {
-  "database": "ok",
+  "database": "disabled",
   "cache": "ok"
 }
 ```
